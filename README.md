@@ -47,52 +47,59 @@ echo "GOOGLE_API_KEY=your_key_here" > .env
 .venv/bin/streamlit run app.py
 ```
 
-## Testing it
+## Test results
 
-Per the brief, try at least three CVs against at least two job descriptions:
+The app was run end-to-end against **two real alternance offers** and **three
+CVs**. Inputs and outputs live under `tests/` — `tests/first/` = Edmond de
+Rothschild *Business AI*, `tests/second/` = Natixis CIB *Data Scientist, Internal
+Audit*; the `*.pdf` files are the actual Streamlit result pages. (Personal CVs and
+the markdown exports are git-ignored.)
 
-- A CV that is a clear strong match → expect a high `fit_percentage`.
-- A CV from a different field → watch the fit percentage drop.
-- A CV with little experience → watch the strengths / areas-for-improvement shift.
+| CV | EdR – Business AI | Natixis – Data Scientist (Audit) |
+|---|:---:|:---:|
+| Strong match (current CV) | **93 %** · Excellent ✅ | **93 %** · Excellent ✅ |
+| Different field (communication) | **8 %** · Low ❌ | **5 %** · Low ❌ |
+| Little experience (1st-year CV) | **54 %** · Average 🤔 | **30 %** · Low ❌ |
 
-The structured object always parses, even when the PDF text is messy; an
-image-only (scanned) PDF is detected and reported instead of being sent to the LLM.
+**Analysis**
 
-## Reflections
+- **Scores rank as expected** — strong ≫ junior ≫ off-field — which validates
+  `fit_percentage` as a discriminating signal.
+- **The evaluation is job-aware**: the same CV yields different gaps per role —
+  Databricks is flagged only for EdR (which lists it), internal-audit/CIB
+  knowledge only for Natixis, and the junior CV's contract/start-date mismatch is
+  caught only against the Natixis offer.
+- **Requirements matter**: the junior CV scores lower at Natixis (30 %) than EdR
+  (54 %) because Natixis explicitly asks for an MSc + prior IT background, so the
+  bachelor-level profile is penalised.
+- **Structured output parsed cleanly on all 8 runs**, including French-language
+  CVs — the typed `CVAnalysis` contract held up on messy, real-world input.
+- **Minor quirks**: `years_of_experience` for the same strong CV came out as 2 vs
+  1 across the two roles (read relative to the role, at temperature 0.2), and
+  `key_skills` are sometimes echoed in the CV's language (French) while the prose
+  stays English — see the multilingual note below.
 
-**Why split the app into modules instead of one `app.py`?** Each module has a
-single responsibility, so the schema, prompts, PDF handling, LLM logic, and UI
-can be read, tested, and changed in isolation. The services never import
-Streamlit, so the core logic could be reused behind a CLI or API.
+## Reflections (concise)
 
-**Why careful `description=` on each `Field`?** With structured output the
-descriptions *are* the instructions — they are sent to the model as the schema
-contract. A vague description gives vague extraction; a precise one (e.g. "5 to
-7 skills most relevant to the role") steers the model directly.
-
-**Why keep the persona in the system message?** It sets stable, role-level
-context (who the model is, what criteria and tone to use) separately from the
-per-request data (this CV, this job), which keeps the human message focused and
-the behavior consistent across calls.
-
-**What problems disappear with `with_structured_output()`?** No prompt-engineered
-JSON, no brittle string/JSON parsing, no "the model added prose around the JSON"
-failures. The result is a validated Pydantic object with full type safety — the
-fit percentage is guaranteed to be an int in 0–100, or the call fails loudly.
-
-**What if the PDF is a scanned image?** `extract_pdf_text` returns a clear error
-string (prefixed with a sentinel) so the UI can detect it and ask for a
-text-based PDF instead of sending empty text to the LLM.
-
-**What does the UI do while the LLM works?** It shows a spinner during PDF
-extraction and during generation so the user knows the app is busy.
-
-### Where to go next
-
-- **Caching:** wrap `evaluate_candidate` (or the chain build) with caching keyed
-  on `(cv_text, job_description)` so re-analyzing the same CV doesn't call the LLM
-  twice. `build_cv_evaluator()` could also be cached so the client is built once.
-- **Other languages:** the prompts work across languages, but you could detect
-  the CV's language and instruct the model to answer in a chosen output language.
-- **Hiring-committee memo:** add a second LLM call that takes the structured
-  `CVAnalysis` and drafts a one-paragraph memo to the recruiter.
+- **Why multiple files, not one `app.py`?** Single-responsibility modules are
+  easier to test and reuse, and the services never import Streamlit.
+- **Why careful `Field(description=...)`?** With structured output the
+  descriptions *are* the instructions sent to the model — vague description,
+  vague extraction.
+- **Why the persona in the system message?** It fixes stable role/tone context,
+  separate from the per-request data, so behaviour stays consistent.
+- **Pydantic object vs free text?** No JSON parsing, no stray prose, guaranteed
+  types (`fit_percentage` is an int 0–100) — or the call fails loudly.
+- **Scanned / image-only PDF?** `extract_pdf_text` returns a sentinel-prefixed
+  error string the UI detects, so empty text never reaches the LLM.
+- **What does the UI show while generating?** Spinners during both PDF extraction
+  and LLM generation.
+- **`with_structured_output()` vs prompt-and-parse JSON?** The schema is enforced
+  and validated automatically — no fragile manual parsing or retry loops.
+- **CVs in another language?** Already works (see the French CVs above); to
+  control the *output* language, detect the CV's language and instruct the model
+  which language to answer in.
+- **Where to add caching?** Memoise `evaluate_candidate` keyed on
+  `(cv_text, job_description)` (e.g. `st.cache_data`), and build the client once.
+- **Add a hiring-committee memo?** Chain a second LLM call that takes the
+  `CVAnalysis` object and drafts a one-paragraph memo to the recruiter.

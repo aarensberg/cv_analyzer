@@ -2,3 +2,11 @@
 __pycache__/
 .venv/
 .env
+
+# Test artifacts
+# - Personal CVs used for testing (privacy)
+tests/cvs/
+# - Per-result analysis exports as markdown (kept only as PDF printouts);
+#   the job descriptions stay tracked.
+tests/**/*.md
+!tests/**/job_description.md
