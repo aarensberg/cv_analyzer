@@ -2,18 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: scaffold only
+## Project status: starter skeletons, core logic unfinished
 
-This is a course assignment for Albert School's "Introduction to Generative AI and LLMs". **Every Python file currently contains nothing but a one-line docstring describing its role — none of the logic exists yet.** The full specification, step-by-step instructions, required `CVAnalysis` fields, and prompt requirements live in `guidelines.pdf`. Read it before implementing anything; it is the source of truth, not the code.
+This is a course assignment for Albert School's "Introduction to Generative AI and LLMs". The files now hold the **starter skeletons copied verbatim from `guidelines.pdf`**, but the actual logic is still marked with `...` / `# Your turn` TODOs. The full specification, step-by-step instructions, required `CVAnalysis` fields, and prompt requirements live in `guidelines.pdf` — it is the source of truth, not the code. Read it before implementing.
+
+What is wired vs. what still needs to be written:
+
+- `app.py` — done (entry point).
+- `services/cv_evaluator.py` — `build_cv_evaluator()` done; **`evaluate_candidate()` body is a TODO** (invoke the chain, wrap in try/except).
+- `models/cv_model.py` — only `candidate_name` exists; **the other 7 fields are TODO** (see schema below).
+- `prompts/cv_prompts.py` — `SYSTEM_PROMPT` and `ANALYSIS_PROMPT` are placeholder `"""..."""` strings; **both need real text**.
+- `services/pdf_processor.py` — `extract_pdf_text()` body is a TODO.
+- `ui/streamlit_ui.py` — `main()` input/result blocks and `render_results()` are TODOs.
 
 The goal: a modular Streamlit app that reads a candidate's CV (PDF) plus a job description and returns a **typed Pydantic `CVAnalysis` object** (not free-form text) for the UI to render. The pedagogical centerpiece is `llm.with_structured_output(CVAnalysis)`.
 
 ## Commands
 
-The virtualenv (`.venv/`) exists but is empty — there is no `requirements.txt`. Install dependencies before running:
+Dependencies are pinned in `requirements.txt`. Install into the existing `.venv/`:
 
 ```bash
-.venv/bin/pip install streamlit pydantic PyPDF2 langchain langchain-core langchain-google-genai
+.venv/bin/pip install -r requirements.txt
 ```
 
 Run the app (must be from the project root — see Imports below):
@@ -22,7 +31,7 @@ Run the app (must be from the project root — see Imports below):
 .venv/bin/streamlit run app.py
 ```
 
-The LLM is Google Gemini (`gemini-2.5-flash`) via `langchain-google-genai`, which requires a Gemini API key in the environment (e.g. `GOOGLE_API_KEY`) before evaluation will work.
+The LLM is Google Gemini (`gemini-2.5-flash`) via `langchain-google-genai`, which needs a Gemini API key as the `GOOGLE_API_KEY` environment variable. The key lives in `.env` (gitignored — do not commit it). `app.py` calls `load_dotenv()` at startup, so the variables in `.env` are loaded into the environment before `build_cv_evaluator()` instantiates the Gemini client — no manual `export` needed.
 
 ## Architecture
 
